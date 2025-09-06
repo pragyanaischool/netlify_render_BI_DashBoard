@@ -2,7 +2,7 @@ import os
 import httpx
 import asyncio
 import logging
-import json # Import json for pretty-printing
+import json
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
@@ -12,7 +12,7 @@ from typing import List, Optional
 # --- Basic Logger Configuration ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Load environment variables
+# Load environment variables from a .env file for local development
 load_dotenv()
 
 # --- API Configuration and Startup Check ---
@@ -27,13 +27,15 @@ app = FastAPI(
     description="An optimized proxy API for fetching data from FinancialModelingPrep."
 )
 
-# --- CORS Middleware ---
+# --- CORS Middleware (allowing frontend to connect) ---
 origins = [
     "https://lucky-starlight-b2967e.netlify.app",
     "http://localhost",
     "http://localhost:8080",
     "http://127.0.0.1:5500",
+    # Add any other frontend URLs you use
 ]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], #origins,
@@ -42,24 +44,69 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Pydantic Models ---
-# (Models are unchanged)
+# --- Pydantic Models for Data Validation & Serialization ---
 class StockQuote(BaseModel):
-    symbol: str; name: str; price: float; changes_percentage: float = Field(alias="changesPercentage"); market_cap: Optional[int] = Field(alias="marketCap", default=None); volume: int; exchange: str
+    symbol: str
+    name: str
+    price: float
+    changes_percentage: float = Field(alias="changesPercentage")
+    change: float
+    day_low: float = Field(alias="dayLow")
+    day_high: float = Field(alias="dayHigh")
+    market_cap: Optional[int] = Field(alias="marketCap", default=None)
+    volume: int
+    exchange: str
 
 class StockProfile(BaseModel):
-    symbol: str; price: float; beta: Optional[float]; vol_avg: Optional[int] = Field(alias="volAvg"); mkt_cap: Optional[int] = Field(alias="mktCap"); last_div: Optional[float] = Field(alias="lastDiv"); range: str; changes: float; company_name: str = Field(alias="companyName"); currency: str; isin: str; description: Optional[str]; website: Optional[str]; image: Optional[str]; ceo: Optional[str] = Field(alias="ceo"); sector: Optional[str]; country: Optional[str]; industry: Optional[str]
+    symbol: str
+    price: float
+    beta: Optional[float]
+    vol_avg: Optional[int] = Field(alias="volAvg")
+    mkt_cap: Optional[int] = Field(alias="mktCap")
+    last_div: Optional[float] = Field(alias="lastDiv")
+    range: str
+    changes: float
+    company_name: str = Field(alias="companyName")
+    currency: str
+    isin: str
+    description: Optional[str]
+    website: Optional[str]
+    image: Optional[str]
+    ceo: Optional[str] = Field(alias="ceo")
+    sector: Optional[str]
+    country: Optional[str]
+    industry: Optional[str]
+    exchange: str
 
 class IntradayChartPoint(BaseModel):
-    date: str; open: float; low: float; high: float; close: float; volume: int
+    date: str
+    open: float
+    low: float
+    high: float
+    close: float
+    volume: int
 
 class HistoricalDataPoint(BaseModel):
-    date: str; open: float; high: float; low: float; close: float; adj_close: float = Field(alias="adjClose"); volume: int; unadjusted_volume: int = Field(alias="unadjustedVolume"); change: float; change_percent: float = Field(alias="changePercent"); vwap: float; label: str; change_over_time: float = Field(alias="changeOverTime")
+    date: str
+    open: float
+    high: float
+    low: float
+    close: float
+    adj_close: float = Field(alias="adjClose")
+    volume: int
+    unadjusted_volume: int = Field(alias="unadjustedVolume")
+    change: float
+    change_percent: float = Field(alias="changePercent")
+    vwap: float
+    label: str
+    change_over_time: float = Field(alias="changeOverTime")
 
 class CombinedStockData(BaseModel):
-    profile: Optional[StockProfile]; quote: Optional[StockQuote]; chart_intraday: List[IntradayChartPoint]
+    profile: Optional[StockProfile]
+    quote: Optional[StockQuote]
+    chart_intraday: List[IntradayChartPoint]
 
-# --- Logging Helper Function ---
+# --- Logging Helper ---
 def log_data_summary(endpoint_name: str, data: dict | list):
     """Logs a clean, readable summary of the data being returned."""
     try:
@@ -82,7 +129,7 @@ def log_data_summary(endpoint_name: str, data: dict | list):
 
 # --- API Call Helper ---
 async def fetch_fmp_data(endpoint: str, client: httpx.AsyncClient):
-    """A helper function to fetch data from the FMP API using a shared client."""
+    """A helper function to fetch data from the FMP API."""
     logging.info(f"Fetching data from FMP endpoint: {endpoint}")
     url = f"{BASE_URL}{endpoint}?apikey={API_KEY}"
     try:
@@ -99,6 +146,15 @@ async def fetch_fmp_data(endpoint: str, client: httpx.AsyncClient):
         raise HTTPException(status_code=500, detail="An unexpected internal error occurred.")
 
 # --- API Endpoints ---
+@app.get("/")
+def read_root():
+    """Root endpoint for health checks."""
+    return {
+        "message": "Stock Analytics API is running.",
+        "api_key_status": "CONFIGURED",
+        "docs_url": "/docs"
+    }
+
 @app.get("/api/quote/{ticker}", response_model=StockQuote)
 async def get_quote(ticker: str):
     """Endpoint to get the latest quote for a stock."""
@@ -107,7 +163,7 @@ async def get_quote(ticker: str):
     
     if isinstance(quote_data, list) and quote_data:
         processed_data = quote_data[0]
-        log_data_summary("get_quote", processed_data) # New detailed log
+        log_data_summary("get_quote", processed_data)
         return processed_data
     
     raise HTTPException(status_code=404, detail="Quote data for ticker not found.")
@@ -120,7 +176,7 @@ async def get_historical_daily(ticker: str):
     
     if historical_data and "historical" in historical_data:
         processed_data = historical_data["historical"]
-        log_data_summary("get_historical_daily", processed_data) # New detailed log
+        log_data_summary("get_historical_daily", processed_data)
         return processed_data
         
     return []
@@ -144,15 +200,5 @@ async def get_stock_all_data(ticker: str):
         "quote": quote_data[0] if isinstance(quote_data, list) and quote_data else None,
         "chart_intraday": intraday_data if isinstance(intraday_data, list) else []
     }
-    log_data_summary("get_stock_all_data", processed_data) # New detailed log
+    log_data_summary("get_stock_all_data", processed_data)
     return processed_data
-
-@app.get("/")
-def read_root():
-    """Root endpoint with a status message."""
-    return {
-        "message": "Stock Analytics API is running.",
-        "api_key_status": "CONFIGURED",
-        "docs_url": "/docs"
-    }
-    
