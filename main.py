@@ -17,12 +17,12 @@ origins = [
     "http://localhost:8080",
     "http://127.0.0.1:5500", # Common for Live Server in VS Code
     "null", # To allow opening index.html directly as a file
-    "https://lucky-starlight-b2967e.netlify.app" # Add your Netlify URL here
+    "https://lucky-starlight-b2967e.netlify.app" # Your specific Netlify URL
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],# origins, # Use the specific origins list for better security
+    allow_origins=["*"],#origins, # Use the specific origins list for better security
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,4 +103,9 @@ async def get_historical_daily(ticker: str):
 
 @app.get("/")
 def read_root():
-    return {"message": "Stock Analytics API is running."}
+    """Root endpoint with a diagnostic check for the API key."""
+    api_key_status = "OK" if API_KEY and API_KEY.strip() else "NOT CONFIGURED"
+    return {
+        "message": "Stock Analytics API is running.",
+        "api_key_status": api_key_status
+    }
