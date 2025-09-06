@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const errorMessage = document.getElementById('error-message');
     const chartTabs = document.getElementById('chart-tabs');
 
-    const BACKEND_URL = 'https://your-render-app-name.onrender.com'; // Replace with your deployed Render URL
+    const BACKEND_URL = 'https://netlify-render-bi-dashboard-hzvm.onrender.com'; // Replace with your deployed Render URL
     
     let priceChart = null;
     let updateInterval = null;
