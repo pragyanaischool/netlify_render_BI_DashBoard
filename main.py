@@ -51,7 +51,7 @@ async def fetch_fmp_data(endpoint: str):
             if not data or (isinstance(data, list) and not data[0]):
                  raise HTTPException(status_code=404, detail="No data found for the given ticker.")
             return data
-        except httpx.HTTPStatusError as exc:
+        except http.HTTPStatusError as exc:
             # Try to parse the error message from the API if available
             try:
                 error_detail = exc.response.json().get("error", exc.response.text)
